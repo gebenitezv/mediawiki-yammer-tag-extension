@@ -1,0 +1,90 @@
+#bodyContent .yammer-window {
+	background: #035D9B url('yammer-window.png') repeat-x bottom left;
+	width: 300px;
+	border: solid 1px #CCC;
+	font-size: 76.5%;
+	color: white;
+}
+#bodyContent .yammer-window h2 {
+	margin: 0px;
+	padding: 2px;
+	color: white;
+	font-size: 1em;
+	font-weight: bold;
+}
+#bodyContent .yammer-header h1 span {
+	visibility:hidden;
+}
+#bodyContent .yammer-header h1 {
+	background: #000C43 url('yammer-logo.png') no-repeat 5px 5px;
+	margin:0;
+	padding:0;
+	height:30px;
+	width:100%;
+	margin-bottom: 0px;
+}
+#bodyContent .yammer-message-list {
+	height: 350px;
+	overflow: auto;	
+	color: white;
+}
+#bodyContent .yammer-message {
+	margin: 2px;
+	background: #003C68 url('yammer-window.png') repeat-x top left;
+	color: white;
+}
+#bodyContent .yammer-message a {
+	color: white;
+}
+#bodyContent .yammer-message-head {
+	background: #035D9B;
+	padding-left:2px;
+}
+#bodyContent .yammer-message-body {
+	padding: 4px 2px;	
+	line-height: 1.1em;
+}
+
+.yammer-icon {
+	float: left;
+	width: 50px;	
+	padding-left: 5px;
+	padding-top: 5px;
+}
+.yammer-icon img {
+	border: solid 1px white;
+}
+
+.yammer-message-content {
+	margin-left: 60px;
+}
+
+.yammer-message-sender {
+	font-weight: bold;	
+}
+
+#bodyContent .yammer-window code {
+	color:#009;
+	background:white;
+	padding: 0px 5px;
+}
+
+#bodyContent .yammer-error-body {
+	padding: 5px;
+	margin: 5px 0px;
+	/* background: #ecf;	*/
+	color: #f99;
+}
+
+#bodyContent .yammer-last-update {
+	text-indent: 2px;
+}
+
+#bodyContent .yammer-footer {
+	border-top: solid 1px #ccc;
+	color: white;
+	text-indent: 2px;
+}
+#bodyContent .yammer-footer a {
+	color: white;
+}
