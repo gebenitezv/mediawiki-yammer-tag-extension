@@ -12,6 +12,7 @@ $wgExtensionFunctions[] = "wfYammerInit";
 function wfYammerInit() {
 	GLOBAL $wgParser;
 	$wgParser->setHook('yammertag','wfYammer_Tag_Hook');
+	$wgParser->setHook('yammergroup', 'wfYammer_Group_Hook');
 	$wgParser->setHook('yammer', 'wfYammer_Broker_Hook');
 }
 
@@ -23,10 +24,20 @@ function wfYammer_Tag_Hook($input, $argv, &$parser) {
 	return YammerExtension::tag($input, $parser);
 }
 
+function wfYammer_Group_Hook($input, $argv, &$parser) {
+	# Let the yammer class show the login screen and/or
+	# load the tag feed
+	require_once dirname(__FILE__). DIRECTORY_SEPARATOR . 'yammer' .  DIRECTORY_SEPARATOR . 'yammerextension.class.php';
+	
+	return YammerExtension::group($input, $parser);
+}
+
 function wfYammer_Broker_Hook($input, $argv, &$parser) {
 	# Early broking of dedicated functions
 	if(!empty($argv['tag'])) {
 		return wfYammer_Tag_Hook($argv['tag'], $argv, &$parser);
+	} elseif (!empty($argv['group'])) {
+		return wfYammer_Group_Hook($argv['group'], $argv, &$parser);
 	}
 
 	# Let the yammer class do some handling otherwise	
