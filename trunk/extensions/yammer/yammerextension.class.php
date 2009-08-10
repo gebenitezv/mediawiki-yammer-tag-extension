@@ -38,6 +38,16 @@ class YammerExtension {
 	const YAMMER_URI_MESSAGES_BY_TAG = 'https://www.yammer.com/api/v1/messages/tagged_with/%s.xml?threaded=true';
 	
 	/**
+	 * @const string Url template to retrieve messages in a specific group
+	 */
+	const YAMMER_URI_MESSAGES_BY_GROUP = 'https://www.yammer.com/api/v1/messages/in_group/%s.xml?threaded=true';
+
+		/**
+	 * @const string Url template to retrieve messages in a specific group
+	 */
+	const YAMMER_URI_GROUPS_BY_LETTER = 'https://www.yammer.com/api/v1/groups.xml?letter=%s&page=%d';
+	
+	/**
 	 * The Yammer Extension requires the default php session to maintain its state.
 	 * To prevent intersection with other extensions and mediawiki itself, all
 	 * YammerExtension related variables are nested in $_SESSION[SESSION_NAMESPACE]
@@ -48,6 +58,11 @@ class YammerExtension {
 	 * @var YammerExtension Singleton implementation
 	 */
 	private static $_instance = null;
+	
+	/**
+	 * @var boolean Toggle caching
+	 */
+	private $_cacheEnabled = true;
 	
 	/**
 	 * Generic handler that tries to do a best guess at which
@@ -68,11 +83,22 @@ class YammerExtension {
 	 */
 	public static function help() {
 		return self::getInstance()->createResponse(
-			'<h2>Help</h2>'
+			'<h2>How to use the Yammer extension</h2>'
 			.'You can use the Yammer functionality in several ways:'
 			.'<ul>'
-			.'<li><code>&lt;yammer&gt;<b><i>YourTag</i></b>&lt;/yammer&gt;</code>'
-			.'<li><code>&lt;yammer tag="<b><i>YourTag</i></b>" /&gt;</code>'
+			.'<li>Show messages with a specific tag #YourTag:'
+			.'   <ul>'
+			.'     <li><code>&lt;yammer&gt;<b><i>YourTag</i></b>&lt;/yammer&gt;</code></li>'
+			.'     <li><code>&lt;yammertag&gt;<b><i>YourTag</i></b>&lt;/yammertag&gt;</code></li>'
+			.'     <li><code>&lt;yammer tag="<b><i>YourTag</i></b>" /&gt;</code></li>'
+			.'   </ul>'
+			.'</li>'
+			.'<li>Show message from a specific group:'
+			.'  <ul>'
+			.'    <li><code>&lt;yammergroup&gt;<b><i>YourGroup</i></b>&lt;/yammergroup&gt;</code>'
+			.'    <li><code>&lt;yammer group="<b><i>YourGroup</i></b>" /&gt;</code>'
+			.'  </ul>'
+			.'</li>'
 			.'</ul>'
 			.'In later versions you might be able to use alternative construct to get other types of content from Yammer'
 		);
@@ -86,10 +112,38 @@ class YammerExtension {
 	 */
 	public static function tag($tag, &$parser) {
 		$parser->disableCache();
+		
 		return self::getInstance()->fetch(
 			sprintf(self::YAMMER_URI_MESSAGES_BY_TAG, urlencode(strtolower($tag)))
 			,
 			'Messages tagged with "'.htmlspecialchars($tag).'"'
+		);
+	}
+	
+	/**
+	 * Returns the 10 latest uses of a certain #tag, in the
+	 * Yammer network
+	 *
+	 * @param String $tag
+	 */
+	public static function group($group, &$parser) {
+		//return 'Group';
+		$parser->disableCache();
+
+		$inst = self::getInstance();
+		
+		$groupId = $inst->findGroupId($group);
+
+		if(!is_numeric($groupId)) {
+			return $groupId;
+		}
+		
+		return $inst->fetch(
+			sprintf(self::YAMMER_URI_MESSAGES_BY_GROUP, urlencode($groupId))
+			,
+			'Messages in the "'.htmlspecialchars($group).'"-group'
+			,
+			'in this group'
 		);
 	}
 	
@@ -117,14 +171,95 @@ class YammerExtension {
 		}
 		return self::$_instance;
 	}
-	
+
 	/**
 	 * Try and perform a signed request to one of the Yammer API
 	 * urls.
 	 * Note: When OAuth authentication has not yet been completed,
 	 * the request will enter the authentication cycle.
 	 */
-	public function fetch($url, $label='') {
+	public function findGroupId($group) {
+		
+		$group = strtolower(preg_replace('/[^\w\-]/','', $group));
+		
+		GLOBAL $wgYammerCacheDir;
+		
+		# Authentication tests
+		if(!$this->isOAuthAuthenticated()) {
+			return $this->performAuth();
+		}
+		if(empty($wgYammerCacheDir)) {
+			return $this->createErrorResponse('Please specify <code>$wgYammerCacheDir</code> in your LocalSettings.php. Then <a href="'.$_SERVER['REQUEST_URI'].'">reload the page</a>.');
+		}
+		if(!is_dir($wgYammerCacheDir)) {
+			return $this->createErrorResponse('Please make sure that <code>$wgYammerCacheDir</code> as defined in your LocalSettings.php exists and is a directory. Then <a href="'.$_SERVER['REQUEST_URI'].'">reload the page</a>.');
+		}
+		
+		# Try and see if the id is available in cache
+		$file = $wgYammerCacheDir . DIRECTORY_SEPARATOR . 'group-'.strtolower($group). '.txt';
+		if(is_file($file)) {
+			return file_get_contents($file);
+		}
+		
+		# Cache miss, we are going to process the groups list until the group is found
+		
+		$letter = strtolower(substr($group, 0, 1));
+		$page = 0;
+		
+		while(true) {
+			$url = sprintf(self::YAMMER_URI_GROUPS_BY_LETTER, $letter, $page);
+			$body = $this->signedRequest($url);
+			
+			# Make sure there are groups in the response
+			if(false === stripos($body, '<id>')) {
+				break;
+			}
+			# Try and parse the groups. 
+			if(!preg_match_all('#<response>(.*?)</response>#ims', $body, $m)) {
+				break;
+			}
+			
+			# Process each group
+			foreach($m[1] as $responseBody) {
+				# Fetch group name and group id
+				$name = preg_match('#<name>(.*?)</name>#i', $responseBody, $m) ? $m[1] : '';
+				$id   = preg_match('#<id>(.*?)</id>#i', $responseBody, $m) ? $m[1] : '';
+				
+				# Skip this response if either name or id is empty
+				if(empty($name) || empty($id)) {
+					continue;
+				}
+				
+				# Create a cache file with the group id
+				$file = $wgYammerCacheDir . DIRECTORY_SEPARATOR . 'group-'.strtolower($name).'.txt';
+				if(!is_file($file)) {
+					$f = fopen($file, 'w');
+					fwrite($f, $id);
+					fclose($f);
+				}
+				
+				# We found the correct group
+				if($name == strtolower($group)) {
+					return $id;
+				}
+			}
+			
+			//exit($body);
+			
+			# Increase page number
+			$page++;
+		}
+		
+		return $this->createErrorResponse('Group with name "'.$group.'" was not found');
+	}	
+		
+	/**
+	 * Try and perform a signed request to one of the Yammer API
+	 * urls.
+	 * Note: When OAuth authentication has not yet been completed,
+	 * the request will enter the authentication cycle.
+	 */
+	public function fetch($url, $label='', $type='with this tag') {
 		GLOBAL $wgYammerCacheDir;
 		
 		if(!$this->isOAuthAuthenticated()) {
@@ -139,12 +274,12 @@ class YammerExtension {
 		
 		$cacheFile = $wgYammerCacheDir . DIRECTORY_SEPARATOR . md5($url) . '.txt';
 		
-		if(!is_file($cacheFile) || filemtime($cacheFile) < @strtotime('-30 minutes')) {
+		if(!$this->_cacheEnabled || !is_file($cacheFile) || filemtime($cacheFile) < @strtotime('-30 minutes')) {
 			# Cache miss or timeout. First start of by getting the latest data
 			$body = $this->signedRequest($url);
 			
 			if(substr($body, 0, 5) !== ('<'.'?xml')) {
-				$body = '<div class="yammer-error-body">No threads found with this tag</div>';
+				$body = '<div class="yammer-error-body">No threads found '.$type.'</div>';
 			} else {
 	
 				# Prepare temporary data arrays			
