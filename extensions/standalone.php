@@ -28,8 +28,8 @@
 	$wgYammerCacheDir = dirname(__FILE__). DIRECTORY_SEPARATOR . 'cache';
 	
 	// Yammer configuration
-	$wgYammerConsumerKey = '7ulsqyx4oiCRPiby5wdjoA';
-	$wgYammerConsumerSecret = 'QF4yA4DTVYgcHvUoxVm8XT9PoX0G93o5uTEzPecnY'; 
+	$wgYammerConsumerKey = '';
+	$wgYammerConsumerSecret = ''; 
 	$wgYammerAccessKey = '';
 	$wgYammerAccessSecret = '';
 
