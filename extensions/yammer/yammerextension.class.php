@@ -41,8 +41,13 @@ class YammerExtension {
 	 * @const string Url template to retrieve messages in a specific group
 	 */
 	const YAMMER_URI_MESSAGES_BY_GROUP = 'https://www.yammer.com/api/v1/messages/in_group/%s.xml?threaded=true';
+	
+	/**
+	 * @const string Url template to retrieve all messages
+	 */
+	const YAMMER_URI_MESSAGES = 'https://www.yammer.com/api/v1/messages';
 
-		/**
+	/**
 	 * @const string Url template to retrieve messages in a specific group
 	 */
 	const YAMMER_URI_GROUPS_BY_LETTER = 'https://www.yammer.com/api/v1/groups.xml?letter=%s&page=%d';
@@ -103,6 +108,22 @@ class YammerExtension {
 			.'In later versions you might be able to use alternative construct to get other types of content from Yammer'
 		);
 	}
+	
+	/**
+	 * Returns the most recent messages in the
+	 * Yammer network
+	 *
+	 * @param String $tag
+	 */
+	public static function all(&$parser) {
+		$parser->disableCache();
+		
+		return self::getInstance()->fetch(
+			self::YAMMER_URI_MESSAGES
+			,
+			'Recent messages'
+		);
+	}	
 	
 	/**
 	 * Returns the 10 latest uses of a certain #tag, in the
