@@ -6,6 +6,9 @@
  * @author Arnoud ten Hoedt
  *
  * @todo: Allow for other feeds than the 'Tag' feed only
+ * @todo: Show the yammer public feed
+ *
+ * May 2010: Remove pass-by-reference bug.
  */
 $wgExtensionFunctions[] = "wfYammerInit";
 
@@ -35,9 +38,9 @@ function wfYammer_Group_Hook($input, $argv, &$parser) {
 function wfYammer_Broker_Hook($input, $argv, &$parser) {
 	# Early broking of dedicated functions
 	if(!empty($argv['tag'])) {
-		return wfYammer_Tag_Hook($argv['tag'], $argv, &$parser);
+		return wfYammer_Tag_Hook($argv['tag'], $argv, $parser);
 	} elseif (!empty($argv['group'])) {
-		return wfYammer_Group_Hook($argv['group'], $argv, &$parser);
+		return wfYammer_Group_Hook($argv['group'], $argv, $parser);
 	}
 
 	# Let the yammer class do some handling otherwise	
