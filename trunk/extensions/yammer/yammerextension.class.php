@@ -48,6 +48,12 @@ class YammerExtension {
 	const YAMMER_URI_MESSAGES = 'https://www.yammer.com/api/v1/messages';
 
 	/**
+	 * @const string Url template to retrieve all messages
+	 */
+	const YAMMER_URI_SEND_MESSAGE = 'https://www.yammer.com/api/v1/messages';
+	
+		
+	/**
 	 * @const string Url template to retrieve messages in a specific group
 	 */
 	const YAMMER_URI_GROUPS_BY_LETTER = 'https://www.yammer.com/api/v1/groups.xml?letter=%s&page=%d';
@@ -265,8 +271,6 @@ class YammerExtension {
 				}
 			}
 			
-			//exit($body);
-			
 			# Increase page number
 			$page++;
 		}
@@ -359,10 +363,35 @@ class YammerExtension {
 			$body = file_get_contents($cacheFile);
 		}
 		
-//		$body .= "\n".var_export($threads, true)."\n";
-		//$body .= "\n".var_export($users, true)."\n";
-		
 		return $this->createResponse($body);
+	}
+	
+	/**
+	* Fetch an url and return the plain result as simpleXML
+	*/
+	public function &fetchXML($url) {
+		if(!$this->isOAuthAuthenticated()) {
+			$res = $this->performAuth();
+			return $res;
+		}
+		$data = $this->signedRequest($url);
+		if(substr($data, 0, 5) !== ('<'.'?xml')) {
+			throw new Exception("Response was not XML");
+		}
+		$xml = simplexml_load_string($data);
+		return $xml;
+	}
+	
+	/**
+	* Fetch an url and return the plain result
+	*/
+	public function &fetchJSON($url) {
+		if(!$this->isOAuthAuthenticated()) {
+			$res = $this->performAuth();
+			return $res;
+		}
+		$data = $this->signedRequest($url);
+		return $data;
 	}
 	
 	/**
@@ -566,6 +595,31 @@ class YammerExtension {
 			echo '</div>';*/
 			return ob_get_clean();
 	}
+	
+	/**
+	* Send out a message to a specific group.
+	*/
+	public function &sendMessage($message, $group = null) {
+		
+		if(!$this->isOAuthAuthenticated()) {
+			return $this->performAuth();
+		}
+	
+		GLOBAL $wgYammerConsumerKey, $wgYammerConsumerSecret, $wgYammerAccessKey, $wgYammerAccessSecret;
+		
+		$parts = array('body='.urlencode($message));
+		
+		if(!empty($group)) {
+			$parts[] = 'group_id='.intval($this->findGroupId($group));
+		}
+		
+		$url = self::YAMMER_URI_SEND_MESSAGE . '?'.implode('&', $parts);
+		
+		$resp = $this->oauth_get($url, $wgYammerConsumerKey, $wgYammerConsumerSecret, $wgYammerAccessKey, $wgYammerAccessSecret, false, 'PLAINTEXT', 'POST');
+		
+		return $resp;
+	}
+	
 	
     /*
     * Custom OAuth function 
